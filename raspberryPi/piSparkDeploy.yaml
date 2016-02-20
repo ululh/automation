@@ -93,7 +93,7 @@
       register: scala_dir
     
     - name:  Deploy scala
-      unarchive: src=/var/ansible/spark/scala-{{ scala_version }}.tgz dest=/usr/local/
+      unarchive: src={{ tar_and_file_dir }}/scala-{{ scala_version }}.tgz dest=/usr/local/
       when: scala_dir.stat.isdir is not defined
       register: scala_install
     
@@ -105,7 +105,7 @@
       register: spark_dir
     
     - name:  Deploy spark
-      unarchive: src=/var/ansible/spark/spark-{{ spark_version }}-bin-without-hadoop.tgz dest=/usr/local/
+      unarchive: src={{ tar_and_file_dir }}/spark-{{ spark_version }}-bin-without-hadoop.tgz dest=/usr/local/
       when: spark_dir.stat.isdir is not defined
       register: spark_install
     
@@ -123,7 +123,7 @@
       register: hadoop_dir
     
     - name:  Untar hadoop
-      unarchive: src=/var/ansible/spark/hadoop-{{ hadoop_version }}.tar.gz dest=/usr/local/
+      unarchive: src={{ tar_and_file_dir }}/hadoop-{{ hadoop_version }}.tar.gz dest=/usr/local/
       when: hadoop_dir.stat.isdir is not defined
       register: hadoop_untar
 
@@ -132,7 +132,7 @@
       when: hadoop_untar.changed
     
     - name: Copy service file in /etc/init.d
-      copy: 'src=/var/ansible/spark/{{ spark_service_script }}  dest=/etc/init.d owner=root group=root mode=0755'
+      copy: 'src={{ tar_and_file_dir }}/{{ spark_service_script }}  dest=/etc/init.d owner=root group=root mode=0755'
 
     - name: Copy spark-env.sh file
       command: cp /usr/local/spark/conf/spark-env.sh.template /usr/local/spark/conf/spark-env.sh
