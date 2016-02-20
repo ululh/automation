@@ -1,0 +1,184 @@
+---
+  
+- hosts: piSparkCluster
+  remote_user: root
+  tasks:
+    - name: Update Timezone to Europe/Paris
+      copy: content="Europe/Paris\n" dest=/etc/timezone owner=root group=root mode=0644
+      register: timezone
+    
+    - name: Reconfigure Timezone Data
+      shell: dpkg-reconfigure -f noninteractive tzdata
+      when: timezone.changed
+    
+    # hosts, derived from https://gist.github.com/rothgar/8793800
+    - name: Build hosts file
+      lineinfile: dest=/etc/hosts regexp=.*{{ item }}$ line='{{ hostvars[item].ansible_eth0.ipv4.address }} {{ item }}' state=present
+      when: hostvars[item].ansible_eth0.ipv4.address is defined
+      with_items: groups['all']
+    
+    - name: Add ansible master to hosts
+      lineinfile: dest=/etc/hosts line='{{ ansible_ip }} {{ ansible_host }}'
+    
+    - name: Set swappiness
+      sysctl: name=vm.swappiness value=1 state=present
+    
+    - name: Set max open files ulimit -n
+      sysctl: name=fs.file-max value=10000 state=present
+    
+    - name: Set http proxy for apt
+      lineinfile: dest=/etc/profile.d/env.sh create=yes 'line=export http_proxy="http://{{ ansible_host }}:{{ proxy_port }}"'
+    
+    - name: remove ntp
+      apt: name=ntp state=absent purge=yes
+      environment:
+        PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
+
+    - name: Install ntpdate
+      apt: name=ntpdate state=present
+      environment:
+        http_proxy: "http://{{ ansible_host }}:{{ proxy_port }}"
+        PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
+    
+    - name: Install python
+      apt: name=python state=present
+      environment:
+        http_proxy: "http://{{ ansible_host }}:{{ proxy_port }}"
+        PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
+    
+    - name: Set ntpdate conf 
+      lineinfile: dest=/etc/default/ntpdate regexp=^NTPDATE_USE_NTP_CONF=.* line=NTPDATE_USE_NTP_CONF=no
+
+    - name: Set ntp server
+      lineinfile: dest=/etc/default/ntpdate regexp=^NTPSERVERS=.* line=NTPSERVERS={{ ansible_host }}
+    
+    - name: Set JAVA_HOME environment variable
+      lineinfile: dest=/etc/environment create=yes line='export JAVA_HOME=/usr/lib/jvm/default-java'
+    
+    - name: Set SPARK_HOME environment variable
+      lineinfile: dest=/etc/environment line='export SPARK_HOME=/usr/local/spark'
+    
+    - name: Set HADOOP_HOME environment variable
+      lineinfile: dest=/etc/environment line='export HADOOP_HOME=/usr/local/hadoop'
+    
+    - name: Install jdk
+      apt: name=default-jdk state=present
+      environment:
+        http_proxy: "http://{{ ansible_host }}:{{ proxy_port }}"
+        PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
+
+    - name: Install slf4j
+      apt: name=libslf4j-java state=present
+      environment:
+        http_proxy: "http://{{ ansible_host }}:{{ proxy_port }}"
+        PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
+
+    - name: create directory for conflicting slf4j jars
+      file: path=/usr/local/unused state=directory mode=0755
+
+    - stat: path=/usr/share/java/slf4j-jcl.jar
+      register: slf4j_jars
+    
+    - name: get conflicting files names
+      shell: ls -1 /usr/share/java/slf4j-jcl*
+      when: slf4j_jars.stat.exists is defined and slf4j_jars.stat.exists
+      register: files_to_move
+
+    - name: move conflicting slf4j jars
+      command: mv {{ item }} /usr/local/unused
+      when: slf4j_jars.stat.exists is defined and slf4j_jars.stat.exists
+      with_items: files_to_move.stdout_lines
+    
+    - stat: path=/usr/local/scala
+      register: scala_dir
+    
+    - name:  Deploy scala
+      unarchive: src=/var/ansible/spark/scala-{{ scala_version }}.tgz dest=/usr/local/
+      when: scala_dir.stat.isdir is not defined
+      register: scala_install
+    
+    - name: Rename scala directory
+      command: mv /usr/local/scala-{{ scala_version }} /usr/local/scala
+      when: scala_install.changed
+    
+    - stat: path=/usr/local/spark
+      register: spark_dir
+    
+    - name:  Deploy spark
+      unarchive: src=/var/ansible/spark/spark-{{ spark_version }}-bin-without-hadoop.tgz dest=/usr/local/
+      when: spark_dir.stat.isdir is not defined
+      register: spark_install
+    
+    - name: Add spark group
+      group: name=spark
+    
+    - name: Rename spark directory
+      command: mv /usr/local/spark-{{ spark_version }}-bin-without-hadoop /usr/local/spark
+      when: spark_install.changed
+    
+    - name: Add spark user
+      user: name=spark group=spark
+    
+    - stat: path=/usr/local/hadoop
+      register: hadoop_dir
+    
+    - name:  Untar hadoop
+      unarchive: src=/var/ansible/spark/hadoop-{{ hadoop_version }}.tar.gz dest=/usr/local/
+      when: hadoop_dir.stat.isdir is not defined
+      register: hadoop_untar
+
+    - name: Rename hadoop directory
+      command: mv /usr/local/hadoop-{{ hadoop_version }} /usr/local/hadoop
+      when: hadoop_untar.changed
+    
+    - name: Copy service file in /etc/init.d
+      copy: 'src=/var/ansible/spark/{{ spark_service_script }}  dest=/etc/init.d owner=root group=root mode=0755'
+
+    - name: Copy spark-env.sh file
+      command: cp /usr/local/spark/conf/spark-env.sh.template /usr/local/spark/conf/spark-env.sh
+
+    - name: Set Spark log dir
+      lineinfile: dest=/usr/local/spark/conf/spark-env.sh line='export SPARK_LOG_DIR=/var/log/spark'
+    
+    - name: Set Spark worker max memory
+      lineinfile: dest=/usr/local/spark/conf/spark-env.sh line='export SPARK_WORKER_MEMORY={{ worker_max_mem }}'
+    
+    - name: Set Spark daemon max memory
+      lineinfile: dest=/usr/local/spark/conf/spark-env.sh line='export SPARK_DAEMON_MEMORY={{ daemon_max_mem }}'
+    
+    - name: Add shared libs and scala to  Spark classpath
+      lineinfile: dest=/usr/local/spark/conf/spark-env.sh line="export SPARK_CLASSPATH='/usr/share/java/*:/usr/local/scala/lib/*'"
+    
+    - name: Add hadoop classpath
+      lineinfile: dest=/usr/local/spark/conf/spark-env.sh line='export SPARK_DIST_CLASSPATH=$(/usr/local/hadoop/bin/hadoop classpath)'
+    
+    - name: Give scala directory to spark user
+      file: path=/usr/local/scala owner=spark group=spark recurse=yes
+      when: scala_install.changed
+    
+    - name: Give spark directory to spark user
+      file: path=/usr/local/spark owner=spark group=spark recurse=yes
+      when: spark_install.changed
+    
+    - name: Give hadoop directory to spark user
+      file: path=/usr/local/hadoop owner=spark group=spark recurse=yes
+      when: hadoop_untar.changed
+    
+    # create interactive user, password generated with mkpasswd --method=SHA-512
+    - name: Create interactive user
+      user: name={{ interactive_user }} password={{ interactive_user_password }}
+    
+- hosts: piSparkSlaves
+  remote_user: root
+  tasks:
+    - name: Set Spark master URL in slaves
+      lineinfile: dest=/etc/init.d/spark-slave regexp='.*\/usr\/local\/spark\/sbin\/start\-slave\.sh.*' line="             su -c '/usr/local/spark/sbin/start-slave.sh spark://{{ spark_master }}:7077' - $USER"
+    
+- hosts: piSparkCluster
+  remote_user: root
+  tasks:
+    - name: Configure spark service
+      shell: /usr/sbin/update-rc.d {{ spark_service_script }} defaults
+
+    - name: Start spark service
+      service: name={{ spark_service_script }} state=started
