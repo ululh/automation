@@ -89,18 +89,21 @@
     - name: create directory for conflicting slf4j jars
       file: path=/usr/local/unused state=directory mode=0755
 
-    - stat: path=/usr/share/java/slf4j-jcl.jar
-      register: slf4j_jars
-    
     - name: get conflicting files names
-      shell: ls -1 /usr/share/java/slf4j-jcl*
-      when: slf4j_jars.stat.exists is defined and slf4j_jars.stat.exists
+      shell: ls -1 /usr/share/java/slf4j-jcl* /usr/share/java/slf4j-jdk14* /usr/share/java/slf4j-log4j12* /usr/share/java/slf4j-nop*
       register: files_to_move
+      ignore_errors: yes
 
     - name: move conflicting slf4j jars
       command: mv {{ item }} /usr/local/unused
-      when: slf4j_jars.stat.exists is defined and slf4j_jars.stat.exists
       with_items: files_to_move.stdout_lines
+    
+    - stat: path=/usr/local/hadoop/share/hadoop/common/lib/slf4j-log4j12-1.7.10.jar
+      register: slf4j_hadoop_jar
+
+    - name: move conflicting slf4j hadoop jar
+      command: mv /usr/local/hadoop/share/hadoop/common/lib/slf4j-log4j12-1.7.10.jar /usr/local/unused
+      when: slf4j_hadoop_jar.stat.exists is defined and slf4j_hadoop_jar.stat.exists
     
     - stat: path=/usr/local/scala
       register: scala_dir
