@@ -22,7 +22,8 @@ unset TMPDIR
 case "$1" in
 	start)
 		log_daemon_msg "Starting the Spark slave daemon" "spark-slave"
-                if [ ! -d /var/log/spark ]; then mkdir /var/log/spark; chown spark:spark /var/log/spark; fi
+                if [ ! -d /var/log/spark ]; then mkdir /var/log/spark; fi
+                chown -R spark:spark /var/log/spark
                 su -c /usr/local/spark/sbin/start-slave.sh - $USER
 
 		log_end_msg $?
