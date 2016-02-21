@@ -27,7 +27,7 @@
       sysctl: name=fs.file-max value=10000 state=present
     
     - name: Set http proxy for apt
-      lineinfile: dest=/etc/profile.d/env.sh create=yes 'line=export http_proxy="http://{{ ansible_host }}:{{ proxy_port }}"'
+      lineinfile: dest=/etc/profile.d/env.sh create=yes 'line=export http_proxy="http://{{ http_proxy }}:{{ proxy_port }}"'
     
     - name: remove ntp
       apt: name=ntp state=absent purge=yes
@@ -37,20 +37,33 @@
     - name: Install ntpdate
       apt: name=ntpdate state=present
       environment:
-        http_proxy: "http://{{ ansible_host }}:{{ proxy_port }}"
+        http_proxy: "http://{{ http_proxy }}:{{ proxy_port }}"
         PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
     
     - name: Install python
       apt: name=python state=present
       environment:
-        http_proxy: "http://{{ ansible_host }}:{{ proxy_port }}"
+        http_proxy: "http://{{ http_proxy }}:{{ proxy_port }}"
         PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
     
     - name: Set ntpdate conf 
       lineinfile: dest=/etc/default/ntpdate regexp=^NTPDATE_USE_NTP_CONF=.* line=NTPDATE_USE_NTP_CONF=no
 
     - name: Set ntp server
-      lineinfile: dest=/etc/default/ntpdate regexp=^NTPSERVERS=.* line=NTPSERVERS={{ ansible_host }}
+      lineinfile: dest=/etc/default/ntpdate regexp=^NTPSERVERS=.* line=NTPSERVERS={{ ntp_server }}
+      register: ntp_setup
+    
+    - name: Create ntpdate script
+      template: src={{ tar_and_file_dir }}/ntpdate.j2 dest=/etc/init.d/ntpdate owner=root group=root mode=0755
+      when: ntp_setup.changed
+    
+    - name: Launch ntpdate script at boot
+      command: /usr/sbin/update-rc.d ntpdate start 02 2 3 4 5
+      when: ntp_setup.changed
+    
+    - name: Cron ntpdate script hourly
+      file: src=/etc/init.d/ntpdate dest=/etc/cron.hourly/ntpdate owner=root group=root state=link
+      when: ntp_setup.changed
     
     - name: Set JAVA_HOME environment variable
       lineinfile: dest=/etc/environment create=yes line='export JAVA_HOME=/usr/lib/jvm/default-java'
@@ -64,13 +77,13 @@
     - name: Install jdk
       apt: name=default-jdk state=present
       environment:
-        http_proxy: "http://{{ ansible_host }}:{{ proxy_port }}"
+        http_proxy: "http://{{ http_proxy }}:{{ proxy_port }}"
         PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
 
     - name: Install slf4j
       apt: name=libslf4j-java state=present
       environment:
-        http_proxy: "http://{{ ansible_host }}:{{ proxy_port }}"
+        http_proxy: "http://{{ http_proxy }}:{{ proxy_port }}"
         PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
 
     - name: create directory for conflicting slf4j jars
@@ -180,5 +193,10 @@
     - name: Configure spark service
       shell: /usr/sbin/update-rc.d {{ spark_service_script }} defaults
 
-    - name: Start spark service
-      service: name={{ spark_service_script }} state=started
+    - name: reboot
+      shell: /bin/sleep 2 && /sbin/shutdown -r now "Ansible updates triggered"
+      async: 1
+      poll: 0
+    
+    - name: waiting for servers to come back
+      local_action: wait_for host={{ inventory_hostname }} state=started delay=10 timeout=40

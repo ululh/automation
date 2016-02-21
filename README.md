@@ -1,4 +1,4 @@
 # automation
 
-Ansible scripts
+Ansible playbooks
 
