@@ -3,5 +3,8 @@
 - hosts: piSparkCluster
   remote_user: root
   tasks:
-    - name: Set http proxy for apt
-      lineinfile: dest=/etc/ssh/sshrc state=absent 'line=export http_proxy="http://{{ ansible_host }}:{{ proxy_port }}"'
+    - name: remove jdk
+      apt: name=openjdk-7-jre-headless state=absent purge=yes
+      environment:
+        PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
+

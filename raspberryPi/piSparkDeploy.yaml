@@ -66,7 +66,7 @@
       when: ntp_setup.changed
     
     - name: Set JAVA_HOME environment variable
-      lineinfile: dest=/etc/environment create=yes line='export JAVA_HOME=/usr/lib/jvm/default-java'
+      lineinfile: dest=/etc/environment create=yes line='export JAVA_HOME=/usr/local/jdk'
     
     - name: Set SPARK_HOME environment variable
       lineinfile: dest=/etc/environment line='export SPARK_HOME=/usr/local/spark'
@@ -74,11 +74,17 @@
     - name: Set HADOOP_HOME environment variable
       lineinfile: dest=/etc/environment line='export HADOOP_HOME=/usr/local/hadoop'
     
-    - name: Install jdk
-      apt: name=default-jdk state=present
-      environment:
-        http_proxy: "http://{{ http_proxy }}:{{ proxy_port }}"
-        PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
+    - stat: path=/usr/local/jdk
+      register: java_dir
+    
+    - name:  Deploy jdk
+      unarchive: src={{ tar_and_file_dir }}/{{ java_tarball }} dest=/usr/local/
+      when: java_dir.stat.isdir is not defined
+      register: java_install
+    
+    - name: Rename java directory
+      command: mv /usr/local/{{ java_version }} /usr/local/jdk
+      when: java_install.changed
 
     - name: Install slf4j
       apt: name=libslf4j-java state=present
