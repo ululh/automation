@@ -1,0 +1,9 @@
+---
+
+- name: Clone the ambari container to create Hadoop cluster
+  lxc_container:
+    name: "{{ managementContainerName }}"
+    backing_store: overlayfs
+    clone_name: "{{ item }}" 
+    clone_snapshot: true
+  with_items:  "{{ hadoopNodes }}"

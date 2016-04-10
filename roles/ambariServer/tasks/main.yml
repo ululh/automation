@@ -1,0 +1,17 @@
+---
+
+- name: Install postgre in ambari container
+  lxc_container:
+    name: "{{ managementContainerName }}"
+    container_command: |
+        apt-get install -y postgresql 2>&1 | tee -a /opt/ansible.out
+
+- name: Install ambari server
+  lxc_container:
+    name: "{{ managementContainerName }}"
+    container_command: |
+        apt-get install -y wget 2>&1 | tee -a /opt/ansible.out
+        wget -nv http://public-repo-1.hortonworks.com/ambari/ubuntu14/2.x/updates/2.2.1.0/ambari.list -O /etc/apt/sources.list.d/ambari.list 2>&1 | tee -a /opt/ansible.out
+        apt-key adv --recv-keys --keyserver keyserver.ubuntu.com B9733A7A07513CAD 2>&1 | tee -a /opt/ansible.out
+        apt-get update 2>&1 | tee -a /opt/ansible.out
+        apt-get install -y ambari-server 2>&1 | tee -a /opt/ansible.out
