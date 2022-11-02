@@ -1,7 +1,0 @@
----
-- hosts: localhost
-  remote_user: root
-  roles:
-    - { role: basicHadoopContainer, managementContainerName: "ambari", lxcBridge: "br0" }
-    - { role: cloneContainer, managementContainerName: "ambari", hadoopNodes: "[ 'nn', 'dn1', 'dn2', 'dn3' ]" }
-    - { role: ambariServer, managementContainerName: "ambari" }

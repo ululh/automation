@@ -1,9 +1,0 @@
----
-  
-- hosts: piSparkCluster
-  remote_user: root
-  tasks:
-    - name: remove scala
-      apt: name=libslf4j-java state=absent purge=yes
-      environment:
-        PATH: /usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
