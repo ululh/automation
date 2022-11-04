@@ -1,0 +1,50 @@
+---
+  
+- hosts: all 
+  remote_user: pi
+  tasks:
+    #- name: print
+    #  ansible.builtin.debug:
+    #    msg: "{{ item }} {{ hostvars[item]['ansible_facts']['default_ipv4']['address'] }}"
+    #  loop: "{{ groups['all'] }}"
+    #  when: hostvars[item]['ansible_facts']['default_ipv4']['address'] is defined
+
+    - name: locale
+      ansible.builtin.lineinfile: 
+        path: /etc/locale.gen
+        regexp: .*fr_FR.UTF-8 UTF-8$
+        line: "fr_FR.UTF-8 UTF-8$"
+        state: present
+      become: yes
+
+    - name: keyboard
+      ansible.builtin.lineinfile: 
+        path: /etc/default/keyboard
+        regexp: ^XKBLAYOUT
+        line: 'XKBLAYOUT="fr"'
+        state: present
+      become: yes
+
+    - name: timezone
+      ansible.builtin.file: 
+        path: /etc/localtime
+        state: link
+        src: /usr/share/zoneinfo/Europe/Paris
+      become: yes
+
+    - name: hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+      become: yes
+
+    - name: Build hosts file
+      # works ONLY when target is "all", else ansible_facts are empty for non targets....
+      ansible.builtin.lineinfile: 
+        path: /etc/hosts
+        regexp: .*{{ item }}$
+        line: "{{ hostvars[item]['ansible_facts']['default_ipv4']['address'] }} {{ item }}"
+        state: present
+      loop: "{{ groups['all'] }}"
+      when: hostvars[item]['ansible_facts']['default_ipv4']['address'] is defined
+      become: yes
+

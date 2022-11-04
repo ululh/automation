@@ -1,0 +1,25 @@
+# location configured in ~/.ansible_cfg
+
+rpis:
+    children:
+        rpi2:
+            hosts:
+                soc01[0:5]:
+        rpi4_2gb:
+            hosts:
+                soc02[1:2]:
+        rpi4_4gb:
+            hosts:
+                soc02[3:4]:
+
+k3s:
+    children:
+        controller:
+            hosts:
+                soc010:
+        workers:
+            hosts:
+                soc011:
+                soc021:
+                soc023:
+       

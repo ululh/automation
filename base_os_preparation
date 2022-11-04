@@ -1,0 +1,24 @@
+# prepare first SD card
+sudo dd if=<raspios image> of=/dev/sda
+
+# ssh key to reach the pis
+ssh-keygen -b 4096
+mkdir /<SD rootfs mount point>/rootfs/home/pi/.ssh
+cp <key> /<SD rootfs mount point>/home/pi/.ssh/authorized_keys
+# ONLY for arm64 : create empty ssh file on boot partition
+touch /<SD boot mount point>/boot/ssh
+
+# assuming SD card is first USB device (/dev/sda)
+# make an image out of prepared SD card
+# reduce rootfs 
+sudo e2fsck -f /dev/sda2
+sudo resize2fs /dev/sda2 2G
+# gparted to reduce partiton (unmounted)
+
+# create custom image
+sudo dd count=8192 if=/dev/sda of=parttion_table.img
+sudo dd conv=sparse if=/dev/sda1 of=/home/ulul/cluster/boot.img
+sudo dd conv=sparse if=/dev/sda2 of=/home/ulul/cluster/rootfs.img
+cat parttion_table.img boot.img rootfs.img > custom_image.img
+
+# image can then be copied on any number of SD cards

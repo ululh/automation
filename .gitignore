@@ -1,2 +1,6 @@
+*/*.gz
 */*.tgz
 */*.tar.gz
+lost
+mapping.txt
+playbooks/roles/xanmanning.k3s/
