@@ -1,6 +1,17 @@
+- hosts: k3s
+  tasks:
+    - name: Activate cgroups on rpis
+      ansible.builtin.lineinfile:
+        path: /boot/cmdline.txt
+        backrefs: yes
+        regexp: "^(console=.*)$"
+        line: '\1 cgroup_memory=1 cgroup_enable=memory'
+      become: yes
+      when: ('rpis' in group_names) 
+
 - name: Build a cluster with a single control node
-    hosts: k3s
-    vars:
-      k3s_become_for_all: true
-    roles:
-      - role: xanmanning.k3s
+  hosts: k3s
+  vars:
+    k3s_become_for_all: true
+  roles:
+    - role: xanmanning.k3s
