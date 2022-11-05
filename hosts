@@ -20,6 +20,5 @@ k3s:
         workers:
             hosts:
                 soc011:
-                soc021:
                 soc023:
        

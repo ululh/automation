@@ -1,0 +1,17 @@
+- hosts: rpis
+  become: yes
+  tasks:
+    - name: Extend rootfs partition to fill all available space
+      community.general.parted:
+        device: /dev/mmcblk0
+        number: 2
+        part_end: "100%"
+        resize: true
+        state: present
+
+    - name: Extend rootfs fs
+      community.general.filesystem:
+        device: /dev/mmcblk0p2
+        fstype: ext4
+        resizefs: true
+        state: present
